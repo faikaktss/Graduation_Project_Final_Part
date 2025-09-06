@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role{
+  id Int @id @default(autoincrement())
+  name String @unique
+  users UserRole[] // bir rolün birden fazla kullanıcısı vardır
+  permissions RolePermission[] // bir rolün birden fazla izni vardır
+}
+
+model RolePermission{//hangi rol hangi 
+  id Int @id @default(autoincrement())
+  role Role @relation(fields: [roleId], references: [id])
+  roleId Int
+  permissionKey String
+}
+
+
+model UserRole{
+  id Int @id @default(autoincrement())
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  role Role @relation(fields: [roleId], references: [id])
+  roleId Int
+
+  @@unique([userId, roleId])
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  DELIVERED
+  CANCELLED
+}
+
+
+model Permission{
+  key String @id
+}
+
+model User {
+  id              Int              @id @default(autoincrement())
+  firstName       String
+  lastName        String
+  fullName        String
+  username        String           @unique
+  email           String           @unique
+  password        String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @default(now()) @updatedAt
+  productComments ProductComment[]
+  refreshTokens   RefreshToken[]
+  cartItems       CartItem[]
+  orders          Order[]
+  userRoles       UserRole[]
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  deletedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId], name: "userId_productId")
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  totalPrice Float
+  status     OrderStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  deletedAt  DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int      @default(1)
+  unitPrice Float
+  createdAt DateTime @default(now())
+  deletedAt DateTime @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id               Int              @id @default(autoincrement())
+  categoryId       Int
+  name             String
+  slug             String           @unique
+  shortDescription String
+  longDescription  String
+  price            Float
+  primaryPhotoUrl  String
+  commentCount     Int              @default(0)
+  averageRating    Float            @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  category         Category         @relation(fields: [categoryId], references: [id])
+  photos           ProductPhoto[]
+  comments         ProductComment[]
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+  stockQuantity    Int              @default(0) @map("stock_quantity")
+
+  @@map("Product")
+}
+
+model ProductPhoto {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  isPrimary Boolean  @default(false)
+  url       String
+  size      Int
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@unique([productId, order])
+}
+
+model ProductComment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  title     String?
+  content   String?
+  rating    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model RefreshToken {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  jti         String   @unique
+  hashedToken String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  user User @relation(fields: [userId], references: [id])
+}
